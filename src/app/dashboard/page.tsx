@@ -111,7 +111,7 @@ export default function DashboardPage() {
     () => true,
     () => false
   );
-  const [data] = useState<AnalysisData | null>(() => {
+  const [data, setData] = useState<AnalysisData | null>(() => {
     if (typeof window === "undefined") return null;
     
     const token = localStorage.getItem("rp_google_token") ?? localStorage.getItem("rp_auth_token");
@@ -152,7 +152,25 @@ export default function DashboardPage() {
       router.replace("/analyze");
       return;
     }
-
+    
+    // Refresh data when page becomes visible to ensure fresh data
+    const handleStorageChange = () => {
+      const raw = localStorage.getItem("rp_analysis_data");
+      if (raw) {
+        try {
+          setData(JSON.parse(raw) as AnalysisData);
+        } catch {
+          // Invalid data, redirect to analyze
+          router.replace("/analyze");
+        }
+      }
+    };
+    
+    window.addEventListener("storage", handleStorageChange);
+    
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, [router, data]);
 
   const values = useMemo(() => {
@@ -217,7 +235,7 @@ export default function DashboardPage() {
           <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">Dashboard</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Repository Insights</h1>
           <p className="mt-2 text-sm text-neutral-400">
-            {data?.repoName ?? "Repository"} • {data?.analyzedAt ? new Date(data.analyzedAt).toLocaleString() : "Latest analysis"}
+            {data?.repoName ?? "Repository"} • {data?.analyzedAt ? new Date(data.analyzedAt + 'Z').toLocaleString() : "Latest analysis"}
           </p>
         </div>
         <div className="flex w-full flex-wrap items-start justify-end gap-3 sm:w-auto">

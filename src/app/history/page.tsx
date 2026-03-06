@@ -61,7 +61,13 @@ export default function HistoryPage() {
         }
 
         const data = await response.json();
-        setHistory(data);
+        // Sort by most recent first
+        const sortedData = data.sort((a: AnalysisRecord, b: AnalysisRecord) => {
+          return new Date(b.analyzedAt).getTime() - new Date(a.analyzedAt).getTime();
+        });
+        setHistory(sortedData);
+        // Clear refresh flag
+        localStorage.removeItem("rp_history_needs_refresh");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unable to fetch history");
       } finally {
@@ -69,7 +75,28 @@ export default function HistoryPage() {
       }
     };
 
+    // Check if we need to force refresh
+    const needsRefresh = localStorage.getItem("rp_history_needs_refresh");
+    if (needsRefresh) {
+      setLoading(true);
+    }
+
     fetchHistory();
+    
+    // Refresh history when the page becomes visible again
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        setLoading(true);
+        setError(null);
+        fetchHistory();
+      }
+    };
+    
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [authToken]);
 
   const viewAnalysis = (record: AnalysisRecord) => {
@@ -79,7 +106,8 @@ export default function HistoryPage() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Parse the timestamp as UTC and convert to local time
+    const date = new Date(dateString + 'Z'); // Append 'Z' to treat as UTC
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -130,7 +158,7 @@ export default function HistoryPage() {
         <BrandLogo className="mb-4" />
         <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">Analysis History</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Your Repository Analysis History</h1>
-        <p className="mt-2 text-neutral-400">Review all your previous repository analysis reports</p>
+        <p className="mt-2 text-neutral-400">Review all your previous repository analysis reports ({history.length} total)</p>
       </div>
 
       {history.length === 0 ? (
